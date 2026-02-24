@@ -15,13 +15,6 @@ red = (255, 0, 0)
 yellow = (0xFF, 0xF4, 0x4F)
 grey = (0xEE, 0xEE, 0xEE)
 
-running  = True
-
-prev_time = time.time()
-
-world = World()
-
-
 def pos_to_display_coord(pos):
     x, y = display.get_size()
     
@@ -38,80 +31,83 @@ def display_coord_to_pos(coord):
 
      return [posx, posy]
 
-world.create_mass(10**13, pos=[0, 0], immovable=True)
+def main():
+    world = World()
+    world.create_mass(10**13, pos=[0, 0], immovable=True)
 
-mouse_pressdown_pos = (0,0)
+    mouse_pressdown_pos = (0,0)
+    tracers = True
+    tracers_pos = {}
+    timestep = 1
+    prev_time = time.time()
 
-tracers = True
-tracers_pos = {}
+    running  = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
 
-timestep = 1
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pressdown_pos = pygame.mouse.get_pos()
 
-
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-           running = False
-
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            mouse_pressdown_pos = pygame.mouse.get_pos()
-
-        elif event.type == pygame.MOUSEBUTTONUP:
-            mouse_release_pos = pygame.mouse.get_pos()
-            xvel = (mouse_release_pos[0] - mouse_pressdown_pos[0]) / 100
-            yvel = -(mouse_release_pos[1] - mouse_pressdown_pos[1]) / 100
-            world.create_mass(10**10, display_coord_to_pos(mouse_pressdown_pos), [xvel, yvel])
+            elif event.type == pygame.MOUSEBUTTONUP:
+                mouse_release_pos = pygame.mouse.get_pos()
+                xvel = (mouse_release_pos[0] - mouse_pressdown_pos[0]) / 100
+                yvel = -(mouse_release_pos[1] - mouse_pressdown_pos[1]) / 100
+                world.create_mass(10**10, display_coord_to_pos(mouse_pressdown_pos), [xvel, yvel])
+            
+            elif event.type == pygame.KEYUP:
+                if event.key == pygame.K_RIGHT:
+                    timestep += 1
+                elif event.key == pygame.K_LEFT:
+                    if timestep != 0:
+                        timestep -= 1
+                elif event.key == pygame.K_t:
+                    if tracers:
+                        tracers = False
+                        tracers_pos = {}
+                    else:
+                        tracers = True
+                elif event.key == pygame.K_BACKSPACE:
+                    removed_mass = world.masses.pop(-1) if len(world.masses) else None
+                    if removed_mass in tracers_pos:
+                        del tracers_pos[removed_mass]
+            
         
-        elif event.type == pygame.KEYUP:
-            if event.key == pygame.K_RIGHT:
-                timestep += 1
-            elif event.key == pygame.K_LEFT:
-                if timestep != 0:
-                    timestep -= 1
-            elif event.key == pygame.K_t:
+        world.update_world(timestep)
+
+        display.fill((0, 0, 0))
+        if tracers:
+            for tracer in tracers_pos:
+                if len(tracers_pos[tracer]) > 1000:
+                    tracers_pos[tracer] = tracers_pos[tracer][len(tracers_pos[tracer]) - 1000:]
+                for i in range(len(tracers_pos[tracer])-1):
+                    pygame.draw.line(display, grey, tracers_pos[tracer][i], tracers_pos[tracer][i+1], 1)
+        for mass in world.masses:
+            coord = pos_to_display_coord(mass.pos)
+            if mass.immovable == False:
+                pygame.draw.circle(display, white, coord, 5, 0)
                 if tracers:
-                    tracers = False
-                    tracers_pos = {}
-                else:
-                    tracers = True
-            elif event.key == pygame.K_BACKSPACE:
-                removed_mass = world.masses.pop(-1)
-                if removed_mass in tracers_pos:
-                    del tracers_pos[removed_mass]
+                    if mass in tracers_pos:
+                        tracers_pos[mass].append(coord)
+                    else:
+                        tracers_pos[mass] = [coord]
+            else:
+                pygame.draw.circle(display, yellow, coord, 8, 0)
         
-    
-    world.update_world(timestep)
+        pygame.display.flip()
 
-    display.fill((0, 0, 0))
-    if tracers:
-        for tracer in tracers_pos:
-            if len(tracers_pos[tracer]) > 1000:
-                tracers_pos[tracer] = tracers_pos[tracer][len(tracers_pos[tracer]) - 1000:]
-            for i in range(len(tracers_pos[tracer])-1):
-                pygame.draw.line(display, grey, tracers_pos[tracer][i], tracers_pos[tracer][i+1], 1)
-    for mass in world.masses:
-        coord = pos_to_display_coord(mass.pos)
-        if mass.immovable == False:
-            pygame.draw.circle(display, white, coord, 5, 0)
-            if tracers:
-                if mass in tracers_pos:
-                    tracers_pos[mass].append(coord)
-                else:
-                    tracers_pos[mass] = [coord]
-        else:
-            pygame.draw.circle(display, yellow, coord, 8, 0)
-    
-    pygame.display.flip()
-
-    pygame.display.update()
+        pygame.display.update()
 
 
-    curr_time = time.time()
-    diff = curr_time - prev_time
-    delay = max(1.0/target_fps - diff, 0)
-    time.sleep(delay)
-    fps = 1.0/(delay + diff)
-    prev_time = curr_time
-    pygame.display.set_caption(f"3BodyProblem timestep={timestep}")
+        curr_time = time.time()
+        diff = curr_time - prev_time
+        delay = max(1.0/target_fps - diff, 0)
+        time.sleep(delay)
+        fps = 1.0/(delay + diff)
+        prev_time = curr_time
+        pygame.display.set_caption(f"3BodyProblem timestep={timestep}")
 
-pygame.quit()
+    pygame.quit()
+
+main()
